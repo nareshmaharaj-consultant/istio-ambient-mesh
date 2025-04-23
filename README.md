@@ -341,9 +341,26 @@ Add a new label to the default namespace.
 ```bash
 kubectl label namespace default istio.io/dataplane-mode=ambient
 ```
-Allow some time and you should see the graph change.
+Allow some time and you should see the graph change. Notice the 
+tiny little padlocks denoting mtls traffic.
 
 ![img_3.png](img_3.png)
+
+### 6.5.3 Debugging with Ambient Mesh ( Optional )
+
+To see if data is encrypted via the Gateway run the following command.
+
+```bash
+kubectl debug -it bookinfo-gateway-istio-787fccdcdf-wrhqn --image=nicolaka/netshoot --image-pull-policy=Always --profile=general
+````
+
+Send an http request to the Ingress Gateway and monitor the Application Data.
+
+You will need to start the tool with a command such as
+
+```termshark -i eth0```
+
+![img_4.png](img_4.png)
 
 ---
 
