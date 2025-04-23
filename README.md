@@ -210,6 +210,9 @@ ztunnel-whv9g             1/1     Running   0          73s
 ## 5 Istio Sample Application
 
 ### 5.1 Download the Sample App
+
+Use the following to download the sample application and istio tools.
+
 ```bash
 curl -L https://istio.io/downloadIstio | sh -cd istio-1.25.2
 export PATH=$PWD/bin:$PATH
@@ -225,32 +228,77 @@ kubectl apply -f samples/bookinfo/platform/kube/bookinfo-versions.yaml
 ```
 
 ### 5.3 Verify
+
+Make sure all the pods are running:
 ```bash
 kubectl get po
-```
+NAME                              READY   STATUS    RESTARTS   AGE
+details-v1-649d7678b5-4sxd6       1/1     Running   0          45s
+productpage-v1-5c5fb9b4b4-vnzzk   1/1     Running   0          45s
+ratings-v1-794db9df8f-vl6p5       1/1     Running   0          45s
+reviews-v1-7f9f5df695-jphnc       1/1     Running   0          45s
+reviews-v2-65c9797659-mwzlk       1/1     Running   0          45s
+reviews-v3-84b8cc6647-cmstq       1/1     Running   0          45s
+````
 
-### 5.4 Ingress Gateway
+### 5.4 Kubernetes Gateway API ( _not_ Istio )
 ```bash
 kubectl apply -f samples/bookinfo/gateway-api/bookinfo-gateway.yaml
 ```
 
 ### 5.5 Remove Default Load Balancer
+For non cloud environments remove the default load balancer 
+that gets automatically created.
+
 ```bash
 kubectl annotate gateway bookinfo-gateway networking.istio.io/service-type=ClusterIP --namespace=default
 ```
 
 ### 5.6 Verify running
+
 ```bash
 kubectl get gateway
+NAME               CLASS   ADDRESS                                            PROGRAMMED   AGE
+bookinfo-gateway   istio   bookinfo-gateway-istio.default.svc.cluster.local   True         79s
 ```
 
 ### 5.7 Access the App
+From a new shell window run the following on the master node.
+
 ```bash
 kubectl port-forward svc/bookinfo-gateway-istio 8080:80
 ```
-Access via: http://localhost:8080/productpage
+**_Note:_**  you cannot view the running app from the Vagrant host at http://localhost:8080/productpage without first configuring kubernetes port forwarding and Vagrant VM host traffic forwarding.
+
+Here's a clearer and more structured rewrite of your instructions:
 
 ---
+
+### 5.8 Setting Up Port Forwarding for bookinfo-gateway-istio from Vagrant Host
+
+1. **Get the Master Node IP Address**  
+   On the master node, run this command to find the 192.x.y.z address:
+   ```bash
+   ip a | grep 192 | grep eth1 | awk '{print $2}' | cut -f1 -d'/'
+   ```
+   Example output:  
+   `inet 192.168.0.131/24 metric 100 brd 192.168.0.255 scope global dynamic eth1`
+
+
+2. **Set Up SSH Port Forwarding**  
+   From a new Windows terminal, establish an SSH tunnel using the IP address found above (password: `vagrant`):
+   ```bash
+   ssh -L 8080:localhost:8080 vagrant@192.168.0.131
+   ```
+
+3. **Access the Application**  
+   After setting up the tunnel, open your web browser and visit:  
+   [http://localhost:8080/productpage](http://localhost:8080/productpage)
+
+![img_1.png](img_1.png)
+
+---
+
 
 ## 6 Visualise with Kiali
 
