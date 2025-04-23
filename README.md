@@ -96,8 +96,6 @@ node03                    running (virtualbox)
 
 ## 3. Install Kubernetes
 
----  
-
 **Setting Up Kubernetes on Your Virtual Machines**
 
 Now that your VMs are up and running, the next step is to deploy Kubernetes on them.
@@ -105,8 +103,6 @@ Now that your VMs are up and running, the next step is to deploy Kubernetes on t
 **Important Note:** We cannot use container-based Kubernetes distributions like Kind, K3s, or similar solutions. The Istio ambient mesh requires low-level networking modifications that are not supported in these environments.
 
 Let’s proceed with a standard Kubernetes installation for your VMs ( _the hard way_ ).
-
----  
 
 ### 3.1 Log into Each VM
 
