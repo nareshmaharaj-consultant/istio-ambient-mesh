@@ -268,9 +268,8 @@ From a new shell window run the following on the master node.
 ```bash
 kubectl port-forward svc/bookinfo-gateway-istio 8080:80
 ```
-**_Note:_**  you cannot view the running app from the Vagrant host at http://localhost:8080/productpage without first configuring kubernetes port forwarding and Vagrant VM host traffic forwarding.
-
-Here's a clearer and more structured rewrite of your instructions:
+**_Note:_**  you cannot view the running app from the 
+Vagrant host at <BLOCKQUOTE>http://localhost:8080/productpage</BLOCKQUOTE> without first configuring kubernetes port forwarding and Vagrant VM host traffic forwarding.
 
 ---
 
@@ -293,7 +292,7 @@ Here's a clearer and more structured rewrite of your instructions:
 
 3. **Access the Application**  
    After setting up the tunnel, open your web browser and visit:  
-   [http://localhost:8080/productpage](http://localhost:8080/productpage)
+   <BLOCKQUOTE>[http://localhost:8080/productpage](http://localhost:8080/productpage)</BLOCKQUOTE>
 
 ![img_1.png](img_1.png)
 
