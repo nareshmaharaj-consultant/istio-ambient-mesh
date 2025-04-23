@@ -301,31 +301,49 @@ Vagrant host at <BLOCKQUOTE>http://localhost:8080/productpage</BLOCKQUOTE> witho
 
 ## 6 Visualise with Kiali
 
+Again from the master node lets add in the visualisation tools.
 ### 6.1 Install Kiali
 ```bash
 kubectl apply -f samples/addons
 ```
 
 ### 6.2 Start Kiali
+
+Expect to get an error here "cant reach host" - that's expected.
 ```bash
 istioctl dashboard kiali
 ```
 
-### 6.3 Port Forwarding for Kiali
+### 6.3 SSH Port Forwarding for Kiali
+From a new cygwin shell, ssh-forward into the master node on the 192.x address we used earlier from 5.8.1. ( password: vagrant )
 ```bash
 ssh -L 20001:localhost:20001 vagrant@192.168.0.131
 ```
-Access via: http://localhost:20001/kiali
+Access via: <BLOCKQUOTE>http://localhost:20001/kiali</BLOCKQUOTE>
 
 ### 6.4 Client Web Requests
+Fake some web client traffic so we can visualise some data in Kiali.
 ```bash
 for i in $(seq 1 100); do curl -sSI -o /dev/null http://localhost:8080/productpage; sleep 1; done
 ```
 
-### 6.5.2 With Ambient Mesh Enabled
+### 6.5 Visualise with Kiali
+Access Kiali <BLOCKQUOTE> http://localhost:20001/kiali</BLOCKQUOTE>
+
+#### 6.5.1 No Security
+
+Currently, without the Ambient Mesh added to the namespace you should see the following.
+
+![img_2.png](img_2.png)
+
+### 6.5.2 Enable Ambient Mesh
+Add a new label to the default namespace.
 ```bash
 kubectl label namespace default istio.io/dataplane-mode=ambient
 ```
+Allow some time and you should see the graph change.
+
+![img_3.png](img_3.png)
 
 ---
 
