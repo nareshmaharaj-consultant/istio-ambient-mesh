@@ -360,11 +360,15 @@ You will need to start the tool with a command such as
 
 ```termshark -i eth0```
 
+Notice the `mtls` protocol.
+
 ![img_4.png](img_4.png)
 
 ---
 
 ## 7 Cert Manager
+cert-manager is a Kubernetes add-on that automates the management of TLS/SSL certificates. It handles:
+ Issuing certificates from a variety of sources (e.g. Let’s Encrypt, HashiCorp Vault, your own internal CA). Renewing certificates automatically before they expire. Then storing certs as Kubernetes Secrets that can be used by Ingress, Gateways, webhooks, and apps.
 
 ### 7.1 Install Cert Manager
 ```bash
@@ -373,6 +377,9 @@ kubectl get pods --namespace cert-manager
 ```
 
 ### 7.2 Test Cert Manager
+
+Test that the installation of cert manager went well and there are no issues.
+
 ```yaml
 cat <<EOF > test-resources.yaml
 apiVersion: v1
@@ -402,10 +409,58 @@ spec:
 EOF
 ```
 
+Expect the describe of the certificate created to be similar to below.
+
+```bash
+kubectl describe certificate selfsigned-cert -n cert-manager-test
+
+Name:         selfsigned-cert
+Namespace:    cert-manager-test
+Labels:       <none>
+Annotations:  <none>
+API Version:  cert-manager.io/v1
+Kind:         Certificate
+Metadata:
+  Creation Timestamp:  2025-04-22T09:18:17Z
+  Generation:          1
+  Resource Version:    1515
+  UID:                 193c1a3b-571d-436f-9b45-e5df1035f2b6
+Spec:
+  Dns Names:
+    example.com
+  Issuer Ref:
+    Name:       test-selfsigned
+  Secret Name:  selfsigned-cert-tls
+Status:
+  Conditions:
+    Last Transition Time:  2025-04-22T09:18:17Z
+    Message:               Certificate is up to date and has not expired
+    Observed Generation:   1
+    Reason:                Ready
+    Status:                True
+    Type:                  Ready
+  Not After:               2025-07-21T09:18:17Z
+  Not Before:              2025-04-22T09:18:17Z
+  Renewal Time:            2025-06-21T09:18:17Z
+  Revision:                1
+Events:
+  Type    Reason     Age   From                                       Message
+  ----    ------     ----  ----                                       -------
+  Normal  Issuing    116s  cert-manager-certificates-trigger          Issuing certificate as Secret does not exist
+  Normal  Generated  116s  cert-manager-certificates-key-manager      Stored new private key in temporary Secret resource "selfsigned-cert-kphjp"
+  Normal  Requested  116s  cert-manager-certificates-request-manager  Created new CertificateRequest resource "selfsigned-cert-1"
+  Normal  Issuing    116s  cert-manager-certificates-issuing          The certificate has been successfully issued
+
+```
+
 ### 7.3 Secure https
+
+Just for testing we will use our self-managed Cluster Issuer and Certificate.
+This is not advised for production but its ideal for our example and local testing.
 
 #### 7.3.1 Create Issuer and Certificate
 ```yaml
+# Issuer
 cat <<EOF> cluster-issuer.yaml
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
@@ -415,6 +470,7 @@ spec:
   selfsigned: {}
 EOF
 
+# Certificate
 cat <<EOF> tls-cert.yaml
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -431,7 +487,39 @@ spec:
 EOF
 ```
 
+### 7.3.2. Verify
+
+It's always nice to verify and make sure things went well.
+
+```bash
+kubectl get ClusterIssuer
+NAME                        READY   AGE
+selfsigned-cluster-issuer   True    43s
+
+kubectl get certificate
+NAME                    READY   SECRET                 AGE
+bookinfo-gateway-cert   True    bookinfo-gateway-tls   22s
+
+```
+### 7.3.3 Delete Current Gateway
+
+We will replace the current Gateway to use the certificates we 
+have just created above.
+```bash
+kubectl get gateway
+NAME               CLASS   ADDRESS                                            PROGRAMMED   AGE
+bookinfo-gateway   istio   bookinfo-gateway-istio.default.svc.cluster.local   True         39m
+
+kubectl delete gateway bookinfo-gateway
+gateway.gateway.networking.k8s.io "bookinfo-gateway" deleted
+```
+
+
 #### 7.3.4 Edit the Gateway
+Make a copy of the current Gateway config then edit it:
+
+Location: `samples/bookinfo/gateway-api/bookinfo-gateway.yaml`
+
 Modified `bookinfo-gateway.yaml`:
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1
