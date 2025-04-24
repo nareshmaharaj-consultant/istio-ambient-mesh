@@ -522,6 +522,7 @@ Location: `samples/bookinfo/gateway-api/bookinfo-gateway.yaml`
 
 Modified `bookinfo-gateway.yaml`:
 ```yaml
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -529,7 +530,7 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - name: https
+  - name: https                        # Secure https
     port: 443
     protocol: HTTPS
     tls:
@@ -540,7 +541,132 @@ spec:
   allowedRoutes:
     namespaces:
       from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+   name: bookinfo
+spec:
+   parentRefs:
+      - name: bookinfo-gateway
+   rules:
+      - matches:
+           - path:
+                type: Exact
+                value: /productpage
+           - path:
+                type: PathPrefix
+                value: /static
+           - path:
+                type: Exact
+                value: /login
+           - path:
+                type: Exact
+                value: /logout
+           - path:
+                type: PathPrefix
+                value: /api/v1/products
+        backendRefs:
+           - name: productpage
+             port: 9080
+
+
+kubectl apply -f bookinfo-gateway.yaml
+
+ > gateway.gateway.networking.k8s.io/bookinfo-gateway created
+ > httproute.gateway.networking.k8s.io/bookinfo configured
+
 ```
+
+### 7.3.5 Update /etc/hosts
+
+On the master host update the hosts file to use the FQDN.
+
+`127.0.0.1 bookinfo.example.com`
+
+### 7.3.6 Port Forwarding
+
+Close any previous port forwarding sessions and establish a new one this time using the FQDN.
+
+```bash
+kubectl port-forward svc/bookinfo-gateway-istio 8443:443
+```
+
+### 7.3.7 Download CA Cert
+
+Would make sense to test our CA certificate and confirm it works in isolation.
+
+```bash
+kubectl get secret bookinfo-gateway-tls -o jsonpath="{.data['tls\.crt']}" | base64 -d > my-cert.crt
+```
+
+### 7.3.8 Test Connection
+
+With our new certificate downloaded lets test it works.
+```bash
+curl -v --cacert my-cert.crt --resolve bookinfo.example.com:8443:127.0.0.1 https://bookinfo.example.com:8443
+
+Output:
+
+* Added bookinfo.example.com:8443:127.0.0.1 to DNS cache
+* Hostname bookinfo.example.com was found in DNS cache
+*   Trying 127.0.0.1:8443...
+* Connected to bookinfo.example.com (127.0.0.1) port 8443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+*  CAfile: my-cert.crt
+*  CApath: /etc/ssl/certs
+* TLSv1.0 (OUT), TLS header, Certificate Status (22):
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+* TLSv1.2 (IN), TLS header, Certificate Status (22):
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+* TLSv1.2 (IN), TLS header, Finished (20):
+* TLSv1.2 (IN), TLS header, Supplemental data (23):
+* TLSv1.3 (IN), TLS handshake, Encrypted Extensions (8):
+* TLSv1.3 (IN), TLS handshake, Certificate (11):
+* TLSv1.3 (IN), TLS handshake, CERT verify (15):
+* TLSv1.3 (IN), TLS handshake, Finished (20):
+* TLSv1.2 (OUT), TLS header, Finished (20):
+* TLSv1.3 (OUT), TLS change cipher, Change cipher spec (1):
+* TLSv1.2 (OUT), TLS header, Supplemental data (23):
+* TLSv1.3 (OUT), TLS handshake, Finished (20):
+* SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384
+* ALPN, server accepted to use h2
+* Server certificate:
+*  subject: CN=bookinfo.example.com
+*  start date: Apr 22 11:27:30 2025 GMT
+*  expire date: Jul 21 11:27:30 2025 GMT
+*  subjectAltName: host "bookinfo.example.com" matched cert's "bookinfo.example.com"
+*  issuer: CN=bookinfo.example.com
+*  SSL certificate verify ok.
+* Using HTTP2, server supports multiplexing
+* Connection state changed (HTTP/2 confirmed)
+* Copying HTTP/2 data in stream buffer to connection buffer after upgrade: len=0
+* TLSv1.2 (OUT), TLS header, Supplemental data (23):
+* TLSv1.2 (OUT), TLS header, Supplemental data (23):
+* TLSv1.2 (OUT), TLS header, Supplemental data (23):
+* Using Stream ID: 1 (easy handle 0x55bbb4cca9f0)
+* TLSv1.2 (OUT), TLS header, Supplemental data (23):
+> GET / HTTP/2
+> Host: bookinfo.example.com:8443
+> user-agent: curl/7.81.0
+> accept: */*
+>
+* TLSv1.2 (IN), TLS header, Supplemental data (23):
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* old SSL session ID is stale, removing
+* TLSv1.2 (IN), TLS header, Supplemental data (23):
+* Connection state changed (MAX_CONCURRENT_STREAMS == 2147483647)!
+* TLSv1.2 (OUT), TLS header, Supplemental data (23):
+* TLSv1.2 (IN), TLS header, Supplemental data (23):
+  < HTTP/2 404
+  < date: Tue, 22 Apr 2025 11:53:28 GMT
+  < server: istio-envoy
+  <
+* Connection #0 to host bookinfo.example.com left intact
+```
+
 
 #### 7.3.8 Test Connection
 ```bash
@@ -548,8 +674,6 @@ curl -v --cacert my-cert.crt --resolve bookinfo.example.com:8443:127.0.0.1 https
 ```
 
 ---
-
-## 5 Enable mtls secure Mesh
 
 ### Appendix 1: API Gateway Example
 
