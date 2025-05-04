@@ -14,8 +14,8 @@ certificates for the demo.
 5. [Istio Sample Application](#5-istio-sample-application)
 6. [Visualize with Kiali](#6-visualise-with-kiali)
 7. [Cert Manager](#7-cert-manager)
-8. [Enable mTLS Secure Mesh](#5-enable-mtlssecure-mesh)
-9. [Appendix](#appendix-1)
+8. [Appendix API Gateway Example](#appendix-1)
+9. 
 
 ---
 
@@ -718,9 +718,9 @@ done
 
 ---
 
-### Appendix 1: API Gateway Example
+### 8 Appendix API Gateway Example
 
-#### GatewayClass
+#### 8.1 GatewayClass
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1  
 kind: GatewayClass  
@@ -730,7 +730,7 @@ spec:
   controllerName: istio.io/gateway-controller
 ```
 
-#### Gateway
+#### 8.2 Gateway
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -746,7 +746,7 @@ spec:
     hostname: "example.com"
 ```
 
-#### HTTPRoute
+#### 8.3 HTTPRoute
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -770,7 +770,7 @@ spec:
 
 ---
 
-## Key Differences: Old vs Gateway API
+## 9 Key Differences: Old vs Gateway API
 
 | Feature          | Old Istio CRDs                     | Gateway API                     |
 |------------------|------------------------------------|---------------------------------|
@@ -782,9 +782,9 @@ The Gateway API provides a more standardized approach to configuring ingress in 
 
 ---
 
-## Appendix 2: Alternative Kubernetes Installations
+## 10 Appendix Alternative Kubernetes Installations
 
-### Kind Configuration
+### 10.1 Kind Configuration
 ```yaml
 kind: Cluster
 apiVersion: kind.x-k8s.io/vialpha4
@@ -794,21 +794,21 @@ nodes:
 - role: worker
 ```
 
-### k3d Installation
+### 10.2 k3d Installation
 ```bash
 k3d cluster create --api-port 6550 -p '9080:80@loadbalancer' -p '9443:443@loadbalancer' --agents 2 --k3s-arg '--disable=traefik@server:*'
 ```
 
 ---
 
-## Appendix 3: Network Tools
+## 11 Appendix Network Tools
 
-Debug with netshoot:
+### 11.1 Debug with netshoot:
 ```bash
 kubectl debug -it details-v1-7c5d957895-7wb6d --image=nicolaka/netshoot --image-pull-policy=Always --profile=general
 ```
 
-Packet capture:
+### 11.2 Packet capture:
 ```bash
 POD=$(kubectl get pods -l app=details -o jsonpath="(.items[0].metadata.name)")
 kubectl debug $POD -i --image=nicolaka/netshoot -- tcpdump -nAi eth0 port 9080 or port 15008
@@ -816,7 +816,7 @@ kubectl debug $POD -i --image=nicolaka/netshoot -- tcpdump -nAi eth0 port 9080 o
 
 ---
 
-## Links
+## 12 Links
 - [K3d Documentation](https://k3d.io)
 - [Istio Official Site](https://istio.io)
 - [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io)
