@@ -667,11 +667,54 @@ Output:
 * Connection #0 to host bookinfo.example.com left intact
 ```
 
+### 7.3.9 Update Windows hosts file ( administrator )
 
-#### 7.3.8 Test Connection
+Edit `C:\Windows\System32\Drivers\etc\hosts` adding 
+
+`127.0.0.1 bookinfo.example.com`
+
+From your local browser try: https://bookinfo.example.com:8443/productpage
+
+### 7.3.10 Host Port Forwarding
+
 ```bash
-curl -v --cacert my-cert.crt --resolve bookinfo.example.com:8443:127.0.0.1 https://bookinfo.example.com:8443
+ssh -L 8443:localhost:8443 vagrant@192.168.0.74
 ```
+
+### 7.3.11 Import Certificate
+
+Pressing the following keys Windows + R should bring up the command window.
+Enter `mmc` and enter.
+
+![img_5.png](img_5.png)
+
+Choose File -> Add/Remove Snap-in
+
+![img_6.png](img_6.png)
+
+Choose Certificates -> Add -> Computer Account -> Finish
+
+![img_7.png](img_7.png)
+
+Left hand Menu -> Certificates -> Trusted Root Certificate
+All Tasks -> Import.
+
+Import the certificate my-cert.crt
+
+![img_8.png](img_8.png)
+
+Restart the Browser and then visit: https://bookinfo.example.com:8443/productpage
+
+![img_9.png](img_9.png)
+
+Run this from vm to see the looped https request like previously but now with https
+```bash
+for i in $(seq 1 10000); 
+  do curl --cacert my-cert.crt -sSI -o /dev/null https://bookinfo.example.com:8443/productpage;sleep 1; 
+done
+```
+
+![img_10.png](img_10.png)
 
 ---
 
