@@ -1,0 +1,852 @@
+<h1
+id="setting-up-kubernetes-with-istio-1.25-on-windows-using-vagrant">Setting
+Up Kubernetes with Istio 1.25 on Windows Using Vagrant</h1>
+<p>This guide walks through setting up a Kubernetes cluster on Windows
+using Vagrant, VirtualBox, and Cygwin, with Istio 1.25 deployed in
+Ambient Mesh mode. It will then use Istio’s bookinfo example application
+and an Ingress Gateway to route external client traffic into the
+Kubernetes cluster and backend pods. The connection will take advantage
+of securing https traffic using Cert-Manager and self created
+certificates for the demo.</p>
+<h2 id="table-of-contents">Table of Contents</h2>
+<!-- TOC -->
+<ul>
+<li><a
+href="#setting-up-kubernetes-with-istio-125-on-windows-using-vagrant">Setting
+Up Kubernetes with Istio 1.25 on Windows Using Vagrant</a>
+<ul>
+<li><a href="#table-of-contents">Table of Contents</a></li>
+<li><a href="#10-preregs">1.0 Preregs</a>
+<ul>
+<li><a href="#11-install-vagrant">1.1 Install Vagrant</a></li>
+<li><a href="#12-install-virtualbox">1.2 Install VirtualBox</a></li>
+<li><a href="#13-install-cygwin">1.3 Install Cygwin</a></li>
+<li><a href="#14-dos2unix">1.4 dos2unix</a></li>
+</ul></li>
+<li><a href="#2-build-vagrant-hosts">2. Build Vagrant Hosts</a>
+<ul>
+<li><a href="#21-checkout-vagrant-scripts">2.1 Checkout Vagrant
+Scripts</a></li>
+<li><a href="#22-build-vms">2.2 Build VMs</a></li>
+</ul></li>
+<li><a href="#3-install-kubernetes">3. Install Kubernetes</a>
+<ul>
+<li><a href="#31-log-into-each-vm">3.1 Log into Each VM</a></li>
+<li><a href="#32-run-setup-script">3.2 Run Setup Script</a></li>
+</ul></li>
+<li><a href="#4-install-istio">4 Install Istio</a>
+<ul>
+<li><a href="#41-install-helm">4.1 Install Helm</a></li>
+<li><a href="#42-add-repo-to-helm">4.2 Add Repo to Helm</a></li>
+<li><a href="#43-base-components">4.3 Base components</a></li>
+<li><a href="#44-kubernetes-gateway-api">4.4 Kubernetes Gateway
+API</a></li>
+<li><a href="#45-istiod-control-plane">4.5 Istiod Control Plane</a></li>
+<li><a href="#46-cni-node-agent">4.6 CNI Node Agent</a></li>
+<li><a href="#47-ztunnel">4.7 Ztunnel</a></li>
+<li><a href="#48-verify-pods-running">4.8 Verify Pods Running</a></li>
+</ul></li>
+<li><a href="#5-istio-sample-application">5 Istio Sample Application</a>
+<ul>
+<li><a href="#51-download-the-sample-app">5.1 Download the Sample
+App</a></li>
+<li><a href="#52-install-the-app">5.2 Install the App</a></li>
+<li><a href="#53-verify">5.3 Verify</a></li>
+<li><a href="#54-kubernetes-gateway-api--_not_-istio-">5.4 Kubernetes
+Gateway API ( <em>not</em> Istio )</a></li>
+<li><a href="#55-remove-default-load-balancer">5.5 Remove Default Load
+Balancer</a></li>
+<li><a href="#56-verify-running">5.6 Verify running</a></li>
+<li><a href="#57-access-the-app">5.7 Access the App</a></li>
+<li><a
+href="#58-setting-up-port-forwarding-for-bookinfo-gateway-istio-from-vagrant-host">5.8
+Setting Up Port Forwarding for bookinfo-gateway-istio from Vagrant
+Host</a></li>
+</ul></li>
+<li><a href="#6-visualise-with-kiali">6 Visualise with Kiali</a>
+<ul>
+<li><a href="#61-install-kiali">6.1 Install Kiali</a></li>
+<li><a href="#62-start-kiali">6.2 Start Kiali</a></li>
+<li><a href="#63-ssh-port-forwarding-for-kiali">6.3 SSH Port Forwarding
+for Kiali</a></li>
+<li><a href="#64-client-web-requests">6.4 Client Web Requests</a></li>
+<li><a href="#65-visualise-with-kiali">6.5 Visualise with Kiali</a>
+<ul>
+<li><a href="#651-no-security">6.5.1 No Security</a></li>
+</ul></li>
+<li><a href="#652-enable-ambient-mesh">6.5.2 Enable Ambient
+Mesh</a></li>
+<li><a href="#653-debugging-with-ambient-mesh--optional-">6.5.3
+Debugging with Ambient Mesh ( Optional )</a></li>
+</ul></li>
+<li><a href="#7-cert-manager">7 Cert Manager</a>
+<ul>
+<li><a href="#71-install-cert-manager">7.1 Install Cert Manager</a></li>
+<li><a href="#72-test-cert-manager">7.2 Test Cert Manager</a></li>
+<li><a href="#73-secure-https">7.3 Secure https</a>
+<ul>
+<li><a href="#731-create-issuer-and-certificate">7.3.1 Create Issuer and
+Certificate</a></li>
+</ul></li>
+<li><a href="#732-verify">7.3.2. Verify</a></li>
+<li><a href="#733-delete-current-gateway">7.3.3 Delete Current
+Gateway</a>
+<ul>
+<li><a href="#734-edit-the-gateway">7.3.4 Edit the Gateway</a></li>
+</ul></li>
+<li><a href="#735-update-etchosts">7.3.5 Update /etc/hosts</a></li>
+<li><a href="#736-port-forwarding">7.3.6 Port Forwarding</a></li>
+<li><a href="#737-download-ca-cert">7.3.7 Download CA Cert</a></li>
+<li><a href="#738-test-connection">7.3.8 Test Connection</a></li>
+<li><a href="#739-update-windows-hosts-file--administrator-">7.3.9
+Update Windows hosts file ( administrator )</a></li>
+<li><a href="#7310-host-port-forwarding">7.3.10 Host Port
+Forwarding</a></li>
+<li><a href="#7311-import-certificate">7.3.11 Import
+Certificate</a></li>
+<li><a href="#8-appendix-api-gateway-example">8 Appendix API Gateway
+Example</a>
+<ul>
+<li><a href="#81-gatewayclass">8.1 GatewayClass</a></li>
+<li><a href="#82-gateway">8.2 Gateway</a></li>
+<li><a href="#83-httproute">8.3 HTTPRoute</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#9-key-differences-old-vs-gateway-api">9 Key Differences:
+Old vs Gateway API</a></li>
+<li><a href="#10-appendix-alternative-kubernetes-installations">10
+Appendix Alternative Kubernetes Installations</a>
+<ul>
+<li><a href="#101-kind-configuration">10.1 Kind Configuration</a></li>
+<li><a href="#102-k3d-installation">10.2 k3d Installation</a></li>
+</ul></li>
+<li><a href="#11-appendix-network-tools">11 Appendix Network Tools</a>
+<ul>
+<li><a href="#111-debug-with-netshoot">11.1 Debug with
+netshoot:</a></li>
+<li><a href="#112-packet-capture">11.2 Packet capture:</a></li>
+</ul></li>
+<li><a href="#12-links">12 Links</a> <!-- TOC --></li>
+</ul></li>
+</ul>
+<hr />
+<h2 id="preregs">1.0 Preregs</h2>
+<p>Before you begin, ensure you have the following installed and
+configured.</p>
+<h3 id="install-vagrant">1.1 Install Vagrant</h3>
+<p>To begin, install Vagrant, a tool that helps you build and manage
+virtual machine environments in a simple and efficient way.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Install from official site</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">https://www.vagrantup.com/downloads</span></span></code></pre></div>
+<h3 id="install-virtualbox">1.2 Install VirtualBox</h3>
+<p>Next, you’ll need VirtualBox, which Vagrant uses to manage your
+virtual machines.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Download from VirtualBox official site</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">https://www.virtualbox.org/wiki/Downloads</span></span></code></pre></div>
+<h3 id="install-cygwin">1.3 Install Cygwin</h3>
+<p>Cygwin provides a Linux-like environment on Windows. It’s needed for
+running bash scripts that may not be natively supported in Windows.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Follow installation instructions from Cygwin official site</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ex">https://www.cygwin.com/</span>   </span></code></pre></div>
+<h3 id="dos2unix">1.4 dos2unix</h3>
+<p>Converts Windows line endings to Unix format:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">choco</span> install dos2unix</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="ex">dos2unix</span> _start.sh</span></code></pre></div>
+<p><strong>Important</strong>: Ensure that everything is working as
+expected before moving on to the next steps. Check that your
+installation is running without errors.</p>
+<hr />
+<h2 id="build-vagrant-hosts">2. Build Vagrant Hosts</h2>
+<p>Now that you’ve installed all necessary software, it’s time to set up
+the virtual machines for your Kubernetes cluster.</p>
+<h3 id="checkout-vagrant-scripts">2.1 Checkout Vagrant Scripts</h3>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/nareshmaharaj-consultant/vagrant_for_kubernetes.git</span></code></pre></div>
+<h3 id="build-vms">2.2 Build VMs</h3>
+<p>Configure the allowed address space for Virtual Box. Only required
+once during set up.</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> /etc/box</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Add to /etc/vbox/networks.conf:</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="ex">10.0.0.0/8</span> 192.168.0.0/16  </span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="ex">2001::/64</span></span></code></pre></div>
+<p>Now you’re ready to build the VMs. Run the following script to start
+things off:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ex">./_start.sh</span></span></code></pre></div>
+<p>Verify all the VMs are running:</p>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ex">vagrant</span> status</span></code></pre></div>
+<p>You should see something like</p>
+<pre class="text"><code>Current machine states:
+master                    running (virtualbox)
+node01                    running (virtualbox)
+node02                    running (virtualbox)
+node03                    running (virtualbox)</code></pre>
+<hr />
+<h2 id="install-kubernetes">3. Install Kubernetes</h2>
+<p><strong>Setting Up Kubernetes on Your Virtual Machines</strong></p>
+<p>Now that your VMs are up and running, the next step is to deploy
+Kubernetes on them.</p>
+<p><strong>Important Note:</strong> We cannot use container-based
+Kubernetes distributions like Kind, K3s, or similar solutions. The Istio
+ambient mesh requires low-level networking modifications that are not
+supported in these environments.</p>
+<p>Let’s proceed with a standard Kubernetes installation for your VMs (
+<em>the hard way</em> ).</p>
+<h3 id="log-into-each-vm">3.1 Log into Each VM</h3>
+<p>In a new Cygwin shell window open an ssh connection to each Virtual
+Machine as follows.</p>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ex">vagrant</span> ssh master</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="ex">vagrant</span> ssh node01</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="ex">vagrant</span> ssh node02</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="ex">vagrant</span> ssh node03</span></code></pre></div>
+<h3 id="run-setup-script">3.2 Run Setup Script</h3>
+<p>Inside each VM, run the setup script that installs and configures
+Kubernetes. Use dos2unix to convert the file if you encounter any
+interpretation errors.</p>
+<div class="sourceCode" id="cb11"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ex">./setup-k8s.sh</span></span></code></pre></div>
+<p>Once the master node setup completes, it will provide you with the
+necessary commands to join the Kubernetes cluster. You’ll need to run
+these join commands on each worker node to connect them to the cluster.
+The command will look something like this:</p>
+<pre class="text"><code>sudo kubeadm join 10.0.0.10:6443 --token 14wpdz.sxivz9sp49t56a56 --discovery-token-ca-cert-hash sha256:249a10a62d32696090a6e8a0cb237423dfdff3a0fc35341eb69e0aa298321014</code></pre>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> get nodes <span class="at">-w</span></span></code></pre></div>
+<hr />
+<h2 id="install-istio">4 Install Istio</h2>
+<p>If you want to use a Secure <code>https</code> connection for the
+external client install the cert-manager first in section 7 below. But
+we recommend doing this mich later once you know you have a fully
+working application.</p>
+<p>Install Istio using Helm and in Ambient Mesh mode.</p>
+<p><strong><em>Note</em></strong>: All the following commands are run
+from the master node, i.e. the kubernetes control plane.</p>
+<h3 id="install-helm">4.1 Install Helm</h3>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-fssL</span> <span class="at">-o</span> get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">chmod</span> 700 get_helm.sh</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="ex">./get_helm.sh</span></span></code></pre></div>
+<h3 id="add-repo-to-helm">4.2 Add Repo to Helm</h3>
+<div class="sourceCode" id="cb15"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="ex">helm</span> repo add istio https://istio-release.storage.googleapis.com/charts</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="ex">helm</span> repo update</span></code></pre></div>
+<h3 id="base-components">4.3 Base components</h3>
+<div class="sourceCode" id="cb16"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="ex">helm</span> install istio-base istio/base <span class="at">-n</span> istio-system <span class="at">--create-namespace</span> <span class="at">--wait</span></span></code></pre></div>
+<h3 id="kubernetes-gateway-api">4.4 Kubernetes Gateway API</h3>
+<p>Using Kubernetes Gateway API Instead of Istio Ingress Gateway</p>
+<p>We are opting for the Kubernetes Gateway API rather than the
+traditional Istio Ingress Gateway.</p>
+<p>Why? The Gateway API is the modern, standardized approach for
+managing traffic in Kubernetes and is designed to eventually replace the
+need for Istio’s built-in Ingress and Egress Gateways.</p>
+<div class="sourceCode" id="cb17"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> get crd gateways.gateway.networking.k8s.io <span class="op">&amp;&gt;</span> /dev/null <span class="kw">||</span> <span class="dt">\</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    <span class="ex">kubectl</span> apply <span class="at">-f</span> https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml</span></code></pre></div>
+<h3 id="istiod-control-plane">4.5 Istiod Control Plane</h3>
+<div class="sourceCode" id="cb18"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="ex">helm</span> install istiod istio/istiod <span class="at">--namespace</span> istio-system <span class="at">--set</span> profile=ambient <span class="at">--wait</span></span></code></pre></div>
+<h3 id="cni-node-agent">4.6 CNI Node Agent</h3>
+<div class="sourceCode" id="cb19"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="ex">helm</span> install istio-cni istio/cni <span class="at">-n</span> istio-system <span class="at">--set</span> profile=ambient <span class="at">--wait</span></span></code></pre></div>
+<h3 id="ztunnel">4.7 Ztunnel</h3>
+<div class="sourceCode" id="cb20"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="ex">helm</span> install ztunnel istio/ztunnel <span class="at">-n</span> istio-system <span class="at">--wait</span></span></code></pre></div>
+<h3 id="verify-pods-running">4.8 Verify Pods Running</h3>
+<div class="sourceCode" id="cb21"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> get pods <span class="at">-n</span> istio-system</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="ex">NAME</span>                      READY   STATUS    RESTARTS   AGE</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="ex">istio-cni-node-2sf68</span>      1/1     Running   0          2m55s</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="ex">istio-cni-node-484wj</span>      1/1     Running   0          2m55s</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="ex">istio-cni-node-czbsf</span>      1/1     Running   0          2m55s</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="ex">istio-cni-node-mzxd7</span>      1/1     Running   0          2m55s</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="ex">istiod-79f49d85c5-sqgzf</span>   1/1     Running   0          3m19s</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="ex">ztunnel-gw8mf</span>             1/1     Running   0          73s</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="ex">ztunnel-h79pj</span>             1/1     Running   0          73s</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="ex">ztunnel-kv4px</span>             1/1     Running   0          73s</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a><span class="ex">ztunnel-whv9g</span>             1/1     Running   0          73s</span></code></pre></div>
+<hr />
+<h2 id="istio-sample-application">5 Istio Sample Application</h2>
+<h3 id="download-the-sample-app">5.1 Download the Sample App</h3>
+<p>Use the following to download the sample application and istio
+tools.</p>
+<div class="sourceCode" id="cb22"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-L</span> https://istio.io/downloadIstio <span class="kw">|</span> <span class="fu">sh</span> <span class="at">-cd</span> istio-1.25.2</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">PATH</span><span class="op">=</span><span class="va">$PWD</span>/bin:<span class="va">$PATH</span></span></code></pre></div>
+<h3 id="install-the-app">5.2 Install the App</h3>
+<figure>
+<img src="img.png" alt="img.png" />
+<figcaption aria-hidden="true">img.png</figcaption>
+</figure>
+<div class="sourceCode" id="cb23"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> apply <span class="at">-f</span> samples/bookinfo/platform/kube/bookinfo.yaml</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> apply <span class="at">-f</span> samples/bookinfo/platform/kube/bookinfo-versions.yaml</span></code></pre></div>
+<h3 id="verify">5.3 Verify</h3>
+<p>Make sure all the pods are running:</p>
+<div class="sourceCode" id="cb24"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> get po</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="ex">NAME</span>                              READY   STATUS    RESTARTS   AGE</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="ex">details-v1-649d7678b5-4sxd6</span>       1/1     Running   0          45s</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="ex">productpage-v1-5c5fb9b4b4-vnzzk</span>   1/1     Running   0          45s</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="ex">ratings-v1-794db9df8f-vl6p5</span>       1/1     Running   0          45s</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="ex">reviews-v1-7f9f5df695-jphnc</span>       1/1     Running   0          45s</span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="ex">reviews-v2-65c9797659-mwzlk</span>       1/1     Running   0          45s</span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a><span class="ex">reviews-v3-84b8cc6647-cmstq</span>       1/1     Running   0          45s</span></code></pre></div>
+<h3 id="kubernetes-gateway-api-not-istio">5.4 Kubernetes Gateway API (
+<em>not</em> Istio )</h3>
+<div class="sourceCode" id="cb25"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> apply <span class="at">-f</span> samples/bookinfo/gateway-api/bookinfo-gateway.yaml</span></code></pre></div>
+<h3 id="remove-default-load-balancer">5.5 Remove Default Load
+Balancer</h3>
+<p>For non cloud environments remove the default load balancer that gets
+automatically created.</p>
+<div class="sourceCode" id="cb26"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> annotate gateway bookinfo-gateway networking.istio.io/service-type=ClusterIP <span class="at">--namespace</span><span class="op">=</span>default</span></code></pre></div>
+<h3 id="verify-running">5.6 Verify running</h3>
+<div class="sourceCode" id="cb27"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> get gateway</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="ex">NAME</span>               CLASS   ADDRESS                                            PROGRAMMED   AGE</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="ex">bookinfo-gateway</span>   istio   bookinfo-gateway-istio.default.svc.cluster.local   True         79s</span></code></pre></div>
+<h3 id="access-the-app">5.7 Access the App</h3>
+<p>From a new shell window run the following on the master node.</p>
+<div class="sourceCode" id="cb28"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> port-forward svc/bookinfo-gateway-istio 8080:80</span></code></pre></div>
+<strong><em>Note:</em></strong> you cannot view the running app from the
+Vagrant host at
+<BLOCKQUOTE>
+http://localhost:8080/productpage
+</BLOCKQUOTE>
+<p>without first configuring kubernetes port forwarding and Vagrant VM
+host traffic forwarding.</p>
+<hr />
+<h3
+id="setting-up-port-forwarding-for-bookinfo-gateway-istio-from-vagrant-host">5.8
+Setting Up Port Forwarding for bookinfo-gateway-istio from Vagrant
+Host</h3>
+<ol type="1">
+<li><p><strong>Get the Master Node IP Address</strong><br />
+On the master node, run this command to find the 192.x.y.z address:</p>
+<div class="sourceCode" id="cb29"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="ex">ip</span> a <span class="kw">|</span> <span class="fu">grep</span> 192 <span class="kw">|</span> <span class="fu">grep</span> eth1 <span class="kw">|</span> <span class="fu">awk</span> <span class="st">&#39;{print $2}&#39;</span> <span class="kw">|</span> <span class="fu">cut</span> <span class="at">-f1</span> <span class="at">-d</span><span class="st">&#39;/&#39;</span></span></code></pre></div>
+<p>Example output:<br />
+<code>inet 192.168.0.131/24 metric 100 brd 192.168.0.255 scope global dynamic eth1</code></p></li>
+<li><p><strong>Set Up SSH Port Forwarding</strong><br />
+From a new Windows terminal, establish an SSH tunnel using the IP
+address found above (password: <code>vagrant</code>):</p>
+<div class="sourceCode" id="cb30"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> <span class="at">-L</span> 8080:localhost:8080 vagrant@192.168.0.131</span></code></pre></div></li>
+<li><p><strong>Access the Application</strong><br />
+After setting up the tunnel, open your web browser and visit:<br />
+</p>
+<BLOCKQUOTE>
+<p><a
+href="http://localhost:8080/productpage">http://localhost:8080/productpage</a></p>
+</BLOCKQUOTE></li>
+</ol>
+<figure>
+<img src="img_1.png" alt="img_1.png" />
+<figcaption aria-hidden="true">img_1.png</figcaption>
+</figure>
+<hr />
+<h2 id="visualise-with-kiali">6 Visualise with Kiali</h2>
+<p>Again from the master node lets add in the visualisation tools. ###
+6.1 Install Kiali</p>
+<div class="sourceCode" id="cb31"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> apply <span class="at">-f</span> samples/addons</span></code></pre></div>
+<h3 id="start-kiali">6.2 Start Kiali</h3>
+<p>Expect to get an error here “cant reach host” - that’s expected.</p>
+<div class="sourceCode" id="cb32"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="ex">istioctl</span> dashboard kiali</span></code></pre></div>
+<h3 id="ssh-port-forwarding-for-kiali">6.3 SSH Port Forwarding for
+Kiali</h3>
+<p>From a new cygwin shell, ssh-forward into the master node on the
+192.x address we used earlier from 5.8.1. ( password: vagrant )</p>
+<div class="sourceCode" id="cb33"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> <span class="at">-L</span> 20001:localhost:20001 vagrant@192.168.0.131</span></code></pre></div>
+Access via:
+<BLOCKQUOTE>
+http://localhost:20001/kiali
+</BLOCKQUOTE>
+<h3 id="client-web-requests">6.4 Client Web Requests</h3>
+<p>Fake some web client traffic so we can visualise some data in
+Kiali.</p>
+<div class="sourceCode" id="cb34"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="va">$(</span><span class="fu">seq</span> 1 100<span class="va">)</span><span class="kw">;</span> <span class="cf">do</span> <span class="ex">curl</span> <span class="at">-sSI</span> <span class="at">-o</span> /dev/null http://localhost:8080/productpage<span class="kw">;</span> <span class="fu">sleep</span> 1<span class="kw">;</span> <span class="cf">done</span></span></code></pre></div>
+<h3 id="visualise-with-kiali-1">6.5 Visualise with Kiali</h3>
+Access Kiali
+<BLOCKQUOTE>
+http://localhost:20001/kiali
+</BLOCKQUOTE>
+<h4 id="no-security">6.5.1 No Security</h4>
+<p>Currently, without the Ambient Mesh added to the namespace you should
+see the following.</p>
+<figure>
+<img src="img_2.png" alt="img_2.png" />
+<figcaption aria-hidden="true">img_2.png</figcaption>
+</figure>
+<h3 id="enable-ambient-mesh">6.5.2 Enable Ambient Mesh</h3>
+<p>Add a new label to the default namespace.</p>
+<div class="sourceCode" id="cb35"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> label namespace default istio.io/dataplane-mode=ambient</span></code></pre></div>
+<p>Allow some time and you should see the graph change. Notice the tiny
+little padlocks denoting mtls traffic.</p>
+<figure>
+<img src="img_3.png" alt="img_3.png" />
+<figcaption aria-hidden="true">img_3.png</figcaption>
+</figure>
+<h3 id="debugging-with-ambient-mesh-optional">6.5.3 Debugging with
+Ambient Mesh ( Optional )</h3>
+<p>To see if data is encrypted via the Gateway run the following
+command.</p>
+<div class="sourceCode" id="cb36"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> debug <span class="at">-it</span> bookinfo-gateway-istio-787fccdcdf-wrhqn <span class="at">--image</span><span class="op">=</span>nicolaka/netshoot <span class="at">--image-pull-policy</span><span class="op">=</span>Always <span class="at">--profile</span><span class="op">=</span>general</span></code></pre></div>
+<p>Send an http request to the Ingress Gateway and monitor the
+Application Data.</p>
+<p>You will need to start the tool with a command such as</p>
+<p><code>termshark -i eth0</code></p>
+<p>Notice the <code>mtls</code> protocol.</p>
+<figure>
+<img src="img_4.png" alt="img_4.png" />
+<figcaption aria-hidden="true">img_4.png</figcaption>
+</figure>
+<hr />
+<h2 id="cert-manager">7 Cert Manager</h2>
+<p>cert-manager is a Kubernetes add-on that automates the management of
+TLS/SSL certificates. It handles: Issuing certificates from a variety of
+sources (e.g. Let’s Encrypt, HashiCorp Vault, your own internal CA).
+Renewing certificates automatically before they expire. Then storing
+certs as Kubernetes Secrets that can be used by Ingress, Gateways,
+webhooks, and apps.</p>
+<h3 id="install-cert-manager">7.1 Install Cert Manager</h3>
+<div class="sourceCode" id="cb37"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> apply <span class="at">-f</span> https://github.com/cert-manager/cert-manager/releases/download/v1.17.0/cert-manager.yaml</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> get pods <span class="at">--namespace</span> cert-manager</span></code></pre></div>
+<h3 id="test-cert-manager">7.2 Test Cert Manager</h3>
+<p>Test that the installation of cert manager went well and there are no
+issues.</p>
+<div class="sourceCode" id="cb38"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="at">cat &lt;&lt;EOF &gt; test-resources.yaml</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="fu">apiVersion</span><span class="kw">:</span><span class="at"> v1</span></span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a><span class="fu">kind</span><span class="kw">:</span><span class="at"> Namespace</span></span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a><span class="fu">metadata</span><span class="kw">:</span></span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> cert-manager-test</span></span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a><span class="pp">---</span></span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a><span class="fu">apiVersion</span><span class="kw">:</span><span class="at"> cert-manager.io/v1</span></span>
+<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a><span class="fu">kind</span><span class="kw">:</span><span class="at"> Issuer</span></span>
+<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a><span class="fu">metadata</span><span class="kw">:</span></span>
+<span id="cb38-10"><a href="#cb38-10" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> test-selfsigned</span></span>
+<span id="cb38-11"><a href="#cb38-11" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">namespace</span><span class="kw">:</span><span class="at"> cert-manager-test</span></span>
+<span id="cb38-12"><a href="#cb38-12" aria-hidden="true" tabindex="-1"></a><span class="fu">spec</span><span class="kw">:</span></span>
+<span id="cb38-13"><a href="#cb38-13" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">selfsigned</span><span class="kw">:</span><span class="at"> </span><span class="kw">{}</span></span>
+<span id="cb38-14"><a href="#cb38-14" aria-hidden="true" tabindex="-1"></a><span class="pp">---</span></span>
+<span id="cb38-15"><a href="#cb38-15" aria-hidden="true" tabindex="-1"></a><span class="fu">apiVersion</span><span class="kw">:</span><span class="at"> cert-manager.io/v1</span></span>
+<span id="cb38-16"><a href="#cb38-16" aria-hidden="true" tabindex="-1"></a><span class="fu">kind</span><span class="kw">:</span><span class="at"> Certificate</span></span>
+<span id="cb38-17"><a href="#cb38-17" aria-hidden="true" tabindex="-1"></a><span class="fu">metadata</span><span class="kw">:</span></span>
+<span id="cb38-18"><a href="#cb38-18" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> selfsigned-cert</span></span>
+<span id="cb38-19"><a href="#cb38-19" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">namespace</span><span class="kw">:</span><span class="at"> cert-manager-test</span></span>
+<span id="cb38-20"><a href="#cb38-20" aria-hidden="true" tabindex="-1"></a><span class="fu">spec</span><span class="kw">:</span></span>
+<span id="cb38-21"><a href="#cb38-21" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">dnsNames</span><span class="kw">:</span></span>
+<span id="cb38-22"><a href="#cb38-22" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> example.com</span></span>
+<span id="cb38-23"><a href="#cb38-23" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">secretName</span><span class="kw">:</span><span class="at"> selfsigned-cert-tls</span></span>
+<span id="cb38-24"><a href="#cb38-24" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">issuerRef</span><span class="kw">:</span></span>
+<span id="cb38-25"><a href="#cb38-25" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">name</span><span class="kw">:</span><span class="at"> test-selfsigned</span></span>
+<span id="cb38-26"><a href="#cb38-26" aria-hidden="true" tabindex="-1"></a><span class="at">EOF</span></span></code></pre></div>
+<p>Expect the describe of the certificate created to be similar to
+below.</p>
+<div class="sourceCode" id="cb39"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> describe certificate selfsigned-cert <span class="at">-n</span> cert-manager-test</span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a><span class="ex">Name:</span>         selfsigned-cert</span>
+<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a><span class="ex">Namespace:</span>    cert-manager-test</span>
+<span id="cb39-5"><a href="#cb39-5" aria-hidden="true" tabindex="-1"></a><span class="ex">Labels:</span>       <span class="op">&lt;</span>none<span class="op">&gt;</span></span>
+<span id="cb39-6"><a href="#cb39-6" aria-hidden="true" tabindex="-1"></a><span class="ex">Annotations:</span>  <span class="op">&lt;</span>none<span class="op">&gt;</span></span>
+<span id="cb39-7"><a href="#cb39-7" aria-hidden="true" tabindex="-1"></a><span class="ex">API</span> Version:  cert-manager.io/v1</span>
+<span id="cb39-8"><a href="#cb39-8" aria-hidden="true" tabindex="-1"></a><span class="ex">Kind:</span>         Certificate</span>
+<span id="cb39-9"><a href="#cb39-9" aria-hidden="true" tabindex="-1"></a><span class="ex">Metadata:</span></span>
+<span id="cb39-10"><a href="#cb39-10" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Creation</span> Timestamp:  2025-04-22T09:18:17Z</span>
+<span id="cb39-11"><a href="#cb39-11" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Generation:</span>          1</span>
+<span id="cb39-12"><a href="#cb39-12" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Resource</span> Version:    1515</span>
+<span id="cb39-13"><a href="#cb39-13" aria-hidden="true" tabindex="-1"></a>  <span class="ex">UID:</span>                 193c1a3b-571d-436f-9b45-e5df1035f2b6</span>
+<span id="cb39-14"><a href="#cb39-14" aria-hidden="true" tabindex="-1"></a><span class="ex">Spec:</span></span>
+<span id="cb39-15"><a href="#cb39-15" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Dns</span> Names:</span>
+<span id="cb39-16"><a href="#cb39-16" aria-hidden="true" tabindex="-1"></a>    <span class="ex">example.com</span></span>
+<span id="cb39-17"><a href="#cb39-17" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Issuer</span> Ref:</span>
+<span id="cb39-18"><a href="#cb39-18" aria-hidden="true" tabindex="-1"></a>    <span class="ex">Name:</span>       test-selfsigned</span>
+<span id="cb39-19"><a href="#cb39-19" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Secret</span> Name:  selfsigned-cert-tls</span>
+<span id="cb39-20"><a href="#cb39-20" aria-hidden="true" tabindex="-1"></a><span class="ex">Status:</span></span>
+<span id="cb39-21"><a href="#cb39-21" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Conditions:</span></span>
+<span id="cb39-22"><a href="#cb39-22" aria-hidden="true" tabindex="-1"></a>    <span class="ex">Last</span> Transition Time:  2025-04-22T09:18:17Z</span>
+<span id="cb39-23"><a href="#cb39-23" aria-hidden="true" tabindex="-1"></a>    <span class="ex">Message:</span>               Certificate is up to date and has not expired</span>
+<span id="cb39-24"><a href="#cb39-24" aria-hidden="true" tabindex="-1"></a>    <span class="ex">Observed</span> Generation:   1</span>
+<span id="cb39-25"><a href="#cb39-25" aria-hidden="true" tabindex="-1"></a>    <span class="ex">Reason:</span>                Ready</span>
+<span id="cb39-26"><a href="#cb39-26" aria-hidden="true" tabindex="-1"></a>    <span class="ex">Status:</span>                True</span>
+<span id="cb39-27"><a href="#cb39-27" aria-hidden="true" tabindex="-1"></a>    <span class="ex">Type:</span>                  Ready</span>
+<span id="cb39-28"><a href="#cb39-28" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Not</span> After:               2025-07-21T09:18:17Z</span>
+<span id="cb39-29"><a href="#cb39-29" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Not</span> Before:              2025-04-22T09:18:17Z</span>
+<span id="cb39-30"><a href="#cb39-30" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Renewal</span> Time:            2025-06-21T09:18:17Z</span>
+<span id="cb39-31"><a href="#cb39-31" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Revision:</span>                1</span>
+<span id="cb39-32"><a href="#cb39-32" aria-hidden="true" tabindex="-1"></a><span class="ex">Events:</span></span>
+<span id="cb39-33"><a href="#cb39-33" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Type</span>    Reason     Age   From                                       Message</span>
+<span id="cb39-34"><a href="#cb39-34" aria-hidden="true" tabindex="-1"></a>  <span class="ex">----</span>    <span class="at">------</span>     <span class="at">----</span>  <span class="at">----</span>                                       <span class="at">-------</span></span>
+<span id="cb39-35"><a href="#cb39-35" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Normal</span>  Issuing    116s  cert-manager-certificates-trigger          Issuing certificate as Secret does not exist</span>
+<span id="cb39-36"><a href="#cb39-36" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Normal</span>  Generated  116s  cert-manager-certificates-key-manager      Stored new private key in temporary Secret resource <span class="st">&quot;selfsigned-cert-kphjp&quot;</span></span>
+<span id="cb39-37"><a href="#cb39-37" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Normal</span>  Requested  116s  cert-manager-certificates-request-manager  Created new CertificateRequest resource <span class="st">&quot;selfsigned-cert-1&quot;</span></span>
+<span id="cb39-38"><a href="#cb39-38" aria-hidden="true" tabindex="-1"></a>  <span class="ex">Normal</span>  Issuing    116s  cert-manager-certificates-issuing          The certificate has been successfully issued</span></code></pre></div>
+<h3 id="secure-https">7.3 Secure https</h3>
+<p>Just for testing we will use our self-managed Cluster Issuer and
+Certificate. This is not advised for production but its ideal for our
+example and local testing.</p>
+<h4 id="create-issuer-and-certificate">7.3.1 Create Issuer and
+Certificate</h4>
+<div class="sourceCode" id="cb40"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Issuer</span></span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a><span class="at">cat &lt;&lt;EOF&gt; cluster-issuer.yaml</span></span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a><span class="fu">apiVersion</span><span class="kw">:</span><span class="at"> cert-manager.io/v1</span></span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a><span class="fu">kind</span><span class="kw">:</span><span class="at"> ClusterIssuer</span></span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a><span class="fu">metadata</span><span class="kw">:</span></span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> selfsigned-cluster-issuer</span></span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a><span class="fu">spec</span><span class="kw">:</span></span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">selfsigned</span><span class="kw">:</span><span class="at"> </span><span class="kw">{}</span></span>
+<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a><span class="at">EOF</span></span>
+<span id="cb40-10"><a href="#cb40-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-11"><a href="#cb40-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Certificate</span></span>
+<span id="cb40-12"><a href="#cb40-12" aria-hidden="true" tabindex="-1"></a><span class="at">cat &lt;&lt;EOF&gt; tls-cert.yaml</span></span>
+<span id="cb40-13"><a href="#cb40-13" aria-hidden="true" tabindex="-1"></a><span class="fu">apiVersion</span><span class="kw">:</span><span class="at"> cert-manager.io/v1</span></span>
+<span id="cb40-14"><a href="#cb40-14" aria-hidden="true" tabindex="-1"></a><span class="fu">kind</span><span class="kw">:</span><span class="at"> Certificate</span></span>
+<span id="cb40-15"><a href="#cb40-15" aria-hidden="true" tabindex="-1"></a><span class="fu">metadata</span><span class="kw">:</span></span>
+<span id="cb40-16"><a href="#cb40-16" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> bookinfo-gateway-cert</span></span>
+<span id="cb40-17"><a href="#cb40-17" aria-hidden="true" tabindex="-1"></a><span class="fu">spec</span><span class="kw">:</span></span>
+<span id="cb40-18"><a href="#cb40-18" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">commonName</span><span class="kw">:</span><span class="at"> bookinfo.example.com</span></span>
+<span id="cb40-19"><a href="#cb40-19" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">dnsNames</span><span class="kw">:</span></span>
+<span id="cb40-20"><a href="#cb40-20" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> bookinfo.example.com</span></span>
+<span id="cb40-21"><a href="#cb40-21" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">secretName</span><span class="kw">:</span><span class="at"> bookinfo-gateway-tls</span></span>
+<span id="cb40-22"><a href="#cb40-22" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">issuerRef</span><span class="kw">:</span></span>
+<span id="cb40-23"><a href="#cb40-23" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">name</span><span class="kw">:</span><span class="at"> selfsigned-cluster-issuer</span></span>
+<span id="cb40-24"><a href="#cb40-24" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">kind</span><span class="kw">:</span><span class="at"> ClusterIssuer</span></span>
+<span id="cb40-25"><a href="#cb40-25" aria-hidden="true" tabindex="-1"></a><span class="at">EOF</span></span></code></pre></div>
+<h3 id="verify-1">7.3.2. Verify</h3>
+<p>It’s always nice to verify and make sure things went well.</p>
+<div class="sourceCode" id="cb41"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> get ClusterIssuer</span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a><span class="ex">NAME</span>                        READY   AGE</span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a><span class="ex">selfsigned-cluster-issuer</span>   True    43s</span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> get certificate</span>
+<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a><span class="ex">NAME</span>                    READY   SECRET                 AGE</span>
+<span id="cb41-7"><a href="#cb41-7" aria-hidden="true" tabindex="-1"></a><span class="ex">bookinfo-gateway-cert</span>   True    bookinfo-gateway-tls   22s</span></code></pre></div>
+<h3 id="delete-current-gateway">7.3.3 Delete Current Gateway</h3>
+<p>We will replace the current Gateway to use the certificates we have
+just created above.</p>
+<div class="sourceCode" id="cb42"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> get gateway</span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a><span class="ex">NAME</span>               CLASS   ADDRESS                                            PROGRAMMED   AGE</span>
+<span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a><span class="ex">bookinfo-gateway</span>   istio   bookinfo-gateway-istio.default.svc.cluster.local   True         39m</span>
+<span id="cb42-4"><a href="#cb42-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb42-5"><a href="#cb42-5" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> delete gateway bookinfo-gateway</span>
+<span id="cb42-6"><a href="#cb42-6" aria-hidden="true" tabindex="-1"></a><span class="ex">gateway.gateway.networking.k8s.io</span> <span class="st">&quot;bookinfo-gateway&quot;</span> deleted</span></code></pre></div>
+<h4 id="edit-the-gateway">7.3.4 Edit the Gateway</h4>
+<p>Make a copy of the current Gateway config then edit it:</p>
+<p>Location:
+<code>samples/bookinfo/gateway-api/bookinfo-gateway.yaml</code></p>
+<p>Modified <code>bookinfo-gateway.yaml</code>:</p>
+<div class="sourceCode" id="cb43"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="pp">---</span></span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a><span class="fu">apiVersion</span><span class="kw">:</span><span class="at"> gateway.networking.k8s.io/v1</span></span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a><span class="fu">kind</span><span class="kw">:</span><span class="at"> Gateway</span></span>
+<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a><span class="fu">metadata</span><span class="kw">:</span></span>
+<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> bookinfo-gateway</span></span>
+<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a><span class="fu">spec</span><span class="kw">:</span></span>
+<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">gatewayClassName</span><span class="kw">:</span><span class="at"> istio</span></span>
+<span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">listeners</span><span class="kw">:</span></span>
+<span id="cb43-9"><a href="#cb43-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> https</span><span class="co">                        # Secure https</span></span>
+<span id="cb43-10"><a href="#cb43-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">port</span><span class="kw">:</span><span class="at"> </span><span class="dv">443</span></span>
+<span id="cb43-11"><a href="#cb43-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">protocol</span><span class="kw">:</span><span class="at"> HTTPS</span></span>
+<span id="cb43-12"><a href="#cb43-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">tls</span><span class="kw">:</span></span>
+<span id="cb43-13"><a href="#cb43-13" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">mode</span><span class="kw">:</span><span class="at"> Terminate</span></span>
+<span id="cb43-14"><a href="#cb43-14" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">certificateRefs</span><span class="kw">:</span></span>
+<span id="cb43-15"><a href="#cb43-15" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">kind</span><span class="kw">:</span><span class="at"> Secret</span></span>
+<span id="cb43-16"><a href="#cb43-16" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">name</span><span class="kw">:</span><span class="at"> bookinfo-gateway-tls</span></span>
+<span id="cb43-17"><a href="#cb43-17" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">allowedRoutes</span><span class="kw">:</span></span>
+<span id="cb43-18"><a href="#cb43-18" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">namespaces</span><span class="kw">:</span></span>
+<span id="cb43-19"><a href="#cb43-19" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">from</span><span class="kw">:</span><span class="at"> Same</span></span>
+<span id="cb43-20"><a href="#cb43-20" aria-hidden="true" tabindex="-1"></a><span class="pp">---</span></span>
+<span id="cb43-21"><a href="#cb43-21" aria-hidden="true" tabindex="-1"></a><span class="fu">apiVersion</span><span class="kw">:</span><span class="at"> gateway.networking.k8s.io/v1</span></span>
+<span id="cb43-22"><a href="#cb43-22" aria-hidden="true" tabindex="-1"></a><span class="fu">kind</span><span class="kw">:</span><span class="at"> HTTPRoute</span></span>
+<span id="cb43-23"><a href="#cb43-23" aria-hidden="true" tabindex="-1"></a><span class="fu">metadata</span><span class="kw">:</span></span>
+<span id="cb43-24"><a href="#cb43-24" aria-hidden="true" tabindex="-1"></a><span class="at">   </span><span class="fu">name</span><span class="kw">:</span><span class="at"> bookinfo</span></span>
+<span id="cb43-25"><a href="#cb43-25" aria-hidden="true" tabindex="-1"></a><span class="fu">spec</span><span class="kw">:</span></span>
+<span id="cb43-26"><a href="#cb43-26" aria-hidden="true" tabindex="-1"></a><span class="at">   </span><span class="fu">parentRefs</span><span class="kw">:</span></span>
+<span id="cb43-27"><a href="#cb43-27" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> bookinfo-gateway</span></span>
+<span id="cb43-28"><a href="#cb43-28" aria-hidden="true" tabindex="-1"></a><span class="at">   </span><span class="fu">rules</span><span class="kw">:</span></span>
+<span id="cb43-29"><a href="#cb43-29" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">matches</span><span class="kw">:</span></span>
+<span id="cb43-30"><a href="#cb43-30" aria-hidden="true" tabindex="-1"></a><span class="at">           </span><span class="kw">-</span><span class="at"> </span><span class="fu">path</span><span class="kw">:</span></span>
+<span id="cb43-31"><a href="#cb43-31" aria-hidden="true" tabindex="-1"></a><span class="at">                </span><span class="fu">type</span><span class="kw">:</span><span class="at"> Exact</span></span>
+<span id="cb43-32"><a href="#cb43-32" aria-hidden="true" tabindex="-1"></a><span class="at">                </span><span class="fu">value</span><span class="kw">:</span><span class="at"> /productpage</span></span>
+<span id="cb43-33"><a href="#cb43-33" aria-hidden="true" tabindex="-1"></a><span class="at">           </span><span class="kw">-</span><span class="at"> </span><span class="fu">path</span><span class="kw">:</span></span>
+<span id="cb43-34"><a href="#cb43-34" aria-hidden="true" tabindex="-1"></a><span class="at">                </span><span class="fu">type</span><span class="kw">:</span><span class="at"> PathPrefix</span></span>
+<span id="cb43-35"><a href="#cb43-35" aria-hidden="true" tabindex="-1"></a><span class="at">                </span><span class="fu">value</span><span class="kw">:</span><span class="at"> /static</span></span>
+<span id="cb43-36"><a href="#cb43-36" aria-hidden="true" tabindex="-1"></a><span class="at">           </span><span class="kw">-</span><span class="at"> </span><span class="fu">path</span><span class="kw">:</span></span>
+<span id="cb43-37"><a href="#cb43-37" aria-hidden="true" tabindex="-1"></a><span class="at">                </span><span class="fu">type</span><span class="kw">:</span><span class="at"> Exact</span></span>
+<span id="cb43-38"><a href="#cb43-38" aria-hidden="true" tabindex="-1"></a><span class="at">                </span><span class="fu">value</span><span class="kw">:</span><span class="at"> /login</span></span>
+<span id="cb43-39"><a href="#cb43-39" aria-hidden="true" tabindex="-1"></a><span class="at">           </span><span class="kw">-</span><span class="at"> </span><span class="fu">path</span><span class="kw">:</span></span>
+<span id="cb43-40"><a href="#cb43-40" aria-hidden="true" tabindex="-1"></a><span class="at">                </span><span class="fu">type</span><span class="kw">:</span><span class="at"> Exact</span></span>
+<span id="cb43-41"><a href="#cb43-41" aria-hidden="true" tabindex="-1"></a><span class="at">                </span><span class="fu">value</span><span class="kw">:</span><span class="at"> /logout</span></span>
+<span id="cb43-42"><a href="#cb43-42" aria-hidden="true" tabindex="-1"></a><span class="at">           </span><span class="kw">-</span><span class="at"> </span><span class="fu">path</span><span class="kw">:</span></span>
+<span id="cb43-43"><a href="#cb43-43" aria-hidden="true" tabindex="-1"></a><span class="at">                </span><span class="fu">type</span><span class="kw">:</span><span class="at"> PathPrefix</span></span>
+<span id="cb43-44"><a href="#cb43-44" aria-hidden="true" tabindex="-1"></a><span class="at">                </span><span class="fu">value</span><span class="kw">:</span><span class="at"> /api/v1/products</span></span>
+<span id="cb43-45"><a href="#cb43-45" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">backendRefs</span><span class="kw">:</span></span>
+<span id="cb43-46"><a href="#cb43-46" aria-hidden="true" tabindex="-1"></a><span class="at">           </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> productpage</span></span>
+<span id="cb43-47"><a href="#cb43-47" aria-hidden="true" tabindex="-1"></a><span class="at">             </span><span class="fu">port</span><span class="kw">:</span><span class="at"> </span><span class="dv">9080</span></span>
+<span id="cb43-48"><a href="#cb43-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-49"><a href="#cb43-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-50"><a href="#cb43-50" aria-hidden="true" tabindex="-1"></a><span class="at">kubectl apply -f bookinfo-gateway.yaml</span></span>
+<span id="cb43-51"><a href="#cb43-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-52"><a href="#cb43-52" aria-hidden="true" tabindex="-1"></a><span class="at"> &gt; gateway.gateway.networking.k8s.io/bookinfo-gateway created</span></span>
+<span id="cb43-53"><a href="#cb43-53" aria-hidden="true" tabindex="-1"></a><span class="at"> &gt; httproute.gateway.networking.k8s.io/bookinfo configured</span></span></code></pre></div>
+<h3 id="update-etchosts">7.3.5 Update /etc/hosts</h3>
+<p>On the master host update the hosts file to use the FQDN.</p>
+<p><code>127.0.0.1 bookinfo.example.com</code></p>
+<h3 id="port-forwarding">7.3.6 Port Forwarding</h3>
+<p>Close any previous port forwarding sessions and establish a new one
+this time using the FQDN.</p>
+<div class="sourceCode" id="cb44"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> port-forward svc/bookinfo-gateway-istio 8443:443</span></code></pre></div>
+<h3 id="download-ca-cert">7.3.7 Download CA Cert</h3>
+<p>Would make sense to test our CA certificate and confirm it works in
+isolation.</p>
+<div class="sourceCode" id="cb45"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> get secret bookinfo-gateway-tls <span class="at">-o</span> jsonpath=<span class="st">&quot;{.data[&#39;tls\.crt&#39;]}&quot;</span> <span class="kw">|</span> <span class="fu">base64</span> <span class="at">-d</span> <span class="op">&gt;</span> my-cert.crt</span></code></pre></div>
+<h3 id="test-connection">7.3.8 Test Connection</h3>
+<p>With our new certificate downloaded lets test it works.</p>
+<div class="sourceCode" id="cb46"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-v</span> <span class="at">--cacert</span> my-cert.crt <span class="at">--resolve</span> bookinfo.example.com:8443:127.0.0.1 https://bookinfo.example.com:8443</span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a><span class="ex">Output:</span></span>
+<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb46-5"><a href="#cb46-5" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> Added bookinfo.example.com:8443:127.0.0.1 to DNS cache</span>
+<span id="cb46-6"><a href="#cb46-6" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> Hostname bookinfo.example.com was found in DNS cache</span>
+<span id="cb46-7"><a href="#cb46-7" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span>   Trying 127.0.0.1:8443...</span>
+<span id="cb46-8"><a href="#cb46-8" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> Connected to bookinfo.example.com <span class="er">(</span><span class="ex">127.0.0.1</span><span class="kw">)</span> <span class="ex">port</span> 8443 <span class="er">(</span><span class="co">#0)</span></span>
+<span id="cb46-9"><a href="#cb46-9" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> ALPN, offering h2</span>
+<span id="cb46-10"><a href="#cb46-10" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> ALPN, offering http/1.1</span>
+<span id="cb46-11"><a href="#cb46-11" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span>  CAfile: my-cert.crt</span>
+<span id="cb46-12"><a href="#cb46-12" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span>  CApath: /etc/ssl/certs</span>
+<span id="cb46-13"><a href="#cb46-13" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.0 <span class="er">(</span><span class="ex">OUT</span><span class="kw">)</span><span class="ex">,</span> TLS header, Certificate Status <span class="er">(</span><span class="ex">22</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-14"><a href="#cb46-14" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.3 <span class="er">(</span><span class="ex">OUT</span><span class="kw">)</span><span class="ex">,</span> TLS handshake, Client hello <span class="er">(</span><span class="ex">1</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-15"><a href="#cb46-15" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.2 <span class="er">(</span><span class="ex">IN</span><span class="kw">)</span><span class="ex">,</span> TLS header, Certificate Status <span class="er">(</span><span class="ex">22</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-16"><a href="#cb46-16" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.3 <span class="er">(</span><span class="ex">IN</span><span class="kw">)</span><span class="ex">,</span> TLS handshake, Server hello <span class="er">(</span><span class="ex">2</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-17"><a href="#cb46-17" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.2 <span class="er">(</span><span class="ex">IN</span><span class="kw">)</span><span class="ex">,</span> TLS header, Finished <span class="er">(</span><span class="ex">20</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-18"><a href="#cb46-18" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.2 <span class="er">(</span><span class="ex">IN</span><span class="kw">)</span><span class="ex">,</span> TLS header, Supplemental data <span class="er">(</span><span class="ex">23</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-19"><a href="#cb46-19" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.3 <span class="er">(</span><span class="ex">IN</span><span class="kw">)</span><span class="ex">,</span> TLS handshake, Encrypted Extensions <span class="er">(</span><span class="ex">8</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-20"><a href="#cb46-20" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.3 <span class="er">(</span><span class="ex">IN</span><span class="kw">)</span><span class="ex">,</span> TLS handshake, Certificate <span class="er">(</span><span class="ex">11</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-21"><a href="#cb46-21" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.3 <span class="er">(</span><span class="ex">IN</span><span class="kw">)</span><span class="ex">,</span> TLS handshake, CERT verify <span class="er">(</span><span class="ex">15</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-22"><a href="#cb46-22" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.3 <span class="er">(</span><span class="ex">IN</span><span class="kw">)</span><span class="ex">,</span> TLS handshake, Finished <span class="er">(</span><span class="ex">20</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-23"><a href="#cb46-23" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.2 <span class="er">(</span><span class="ex">OUT</span><span class="kw">)</span><span class="ex">,</span> TLS header, Finished <span class="er">(</span><span class="ex">20</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-24"><a href="#cb46-24" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.3 <span class="er">(</span><span class="ex">OUT</span><span class="kw">)</span><span class="ex">,</span> TLS change cipher, Change cipher spec <span class="er">(</span><span class="ex">1</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-25"><a href="#cb46-25" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.2 <span class="er">(</span><span class="ex">OUT</span><span class="kw">)</span><span class="ex">,</span> TLS header, Supplemental data <span class="er">(</span><span class="ex">23</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-26"><a href="#cb46-26" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> TLSv1.3 <span class="er">(</span><span class="ex">OUT</span><span class="kw">)</span><span class="ex">,</span> TLS handshake, Finished <span class="er">(</span><span class="ex">20</span><span class="kw">)</span><span class="bu">:</span></span>
+<span id="cb46-27"><a href="#cb46-27" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384</span>
+<span id="cb46-28"><a href="#cb46-28" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> ALPN, server accepted to use h2</span>
+<span id="cb46-29"><a href="#cb46-29" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span> Server certificate:</span>
+<span id="cb46-30"><a href="#cb46-30" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span>  subject: CN=bookinfo.example.com</span>
+<span id="cb46-31"><a href="#cb46-31" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span>  start date: Apr 22 11:27:30 2025 GMT</span>
+<span id="cb46-32"><a href="#cb46-32" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span>  expire date: Jul 21 11:27:30 2025 GMT</span>
+<span id="cb46-33"><a href="#cb46-33" aria-hidden="true" tabindex="-1"></a><span class="ex">*</span>  subjectAltName: host <span class="st">&quot;bookinfo.example.com&quot;</span> matched cert<span class="st">&#39;s &quot;bookinfo.example.com&quot;</span></span>
+<span id="cb46-34"><a href="#cb46-34" aria-hidden="true" tabindex="-1"></a><span class="st">*  issuer: CN=bookinfo.example.com</span></span>
+<span id="cb46-35"><a href="#cb46-35" aria-hidden="true" tabindex="-1"></a><span class="st">*  SSL certificate verify ok.</span></span>
+<span id="cb46-36"><a href="#cb46-36" aria-hidden="true" tabindex="-1"></a><span class="st">* Using HTTP2, server supports multiplexing</span></span>
+<span id="cb46-37"><a href="#cb46-37" aria-hidden="true" tabindex="-1"></a><span class="st">* Connection state changed (HTTP/2 confirmed)</span></span>
+<span id="cb46-38"><a href="#cb46-38" aria-hidden="true" tabindex="-1"></a><span class="st">* Copying HTTP/2 data in stream buffer to connection buffer after upgrade: len=0</span></span>
+<span id="cb46-39"><a href="#cb46-39" aria-hidden="true" tabindex="-1"></a><span class="st">* TLSv1.2 (OUT), TLS header, Supplemental data (23):</span></span>
+<span id="cb46-40"><a href="#cb46-40" aria-hidden="true" tabindex="-1"></a><span class="st">* TLSv1.2 (OUT), TLS header, Supplemental data (23):</span></span>
+<span id="cb46-41"><a href="#cb46-41" aria-hidden="true" tabindex="-1"></a><span class="st">* TLSv1.2 (OUT), TLS header, Supplemental data (23):</span></span>
+<span id="cb46-42"><a href="#cb46-42" aria-hidden="true" tabindex="-1"></a><span class="st">* Using Stream ID: 1 (easy handle 0x55bbb4cca9f0)</span></span>
+<span id="cb46-43"><a href="#cb46-43" aria-hidden="true" tabindex="-1"></a><span class="st">* TLSv1.2 (OUT), TLS header, Supplemental data (23):</span></span>
+<span id="cb46-44"><a href="#cb46-44" aria-hidden="true" tabindex="-1"></a><span class="st">&gt; GET / HTTP/2</span></span>
+<span id="cb46-45"><a href="#cb46-45" aria-hidden="true" tabindex="-1"></a><span class="st">&gt; Host: bookinfo.example.com:8443</span></span>
+<span id="cb46-46"><a href="#cb46-46" aria-hidden="true" tabindex="-1"></a><span class="st">&gt; user-agent: curl/7.81.0</span></span>
+<span id="cb46-47"><a href="#cb46-47" aria-hidden="true" tabindex="-1"></a><span class="st">&gt; accept: */*</span></span>
+<span id="cb46-48"><a href="#cb46-48" aria-hidden="true" tabindex="-1"></a><span class="st">&gt;</span></span>
+<span id="cb46-49"><a href="#cb46-49" aria-hidden="true" tabindex="-1"></a><span class="st">* TLSv1.2 (IN), TLS header, Supplemental data (23):</span></span>
+<span id="cb46-50"><a href="#cb46-50" aria-hidden="true" tabindex="-1"></a><span class="st">* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):</span></span>
+<span id="cb46-51"><a href="#cb46-51" aria-hidden="true" tabindex="-1"></a><span class="st">* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):</span></span>
+<span id="cb46-52"><a href="#cb46-52" aria-hidden="true" tabindex="-1"></a><span class="st">* old SSL session ID is stale, removing</span></span>
+<span id="cb46-53"><a href="#cb46-53" aria-hidden="true" tabindex="-1"></a><span class="st">* TLSv1.2 (IN), TLS header, Supplemental data (23):</span></span>
+<span id="cb46-54"><a href="#cb46-54" aria-hidden="true" tabindex="-1"></a><span class="st">* Connection state changed (MAX_CONCURRENT_STREAMS == 2147483647)!</span></span>
+<span id="cb46-55"><a href="#cb46-55" aria-hidden="true" tabindex="-1"></a><span class="st">* TLSv1.2 (OUT), TLS header, Supplemental data (23):</span></span>
+<span id="cb46-56"><a href="#cb46-56" aria-hidden="true" tabindex="-1"></a><span class="st">* TLSv1.2 (IN), TLS header, Supplemental data (23):</span></span>
+<span id="cb46-57"><a href="#cb46-57" aria-hidden="true" tabindex="-1"></a><span class="st">  &lt; HTTP/2 404</span></span>
+<span id="cb46-58"><a href="#cb46-58" aria-hidden="true" tabindex="-1"></a><span class="st">  &lt; date: Tue, 22 Apr 2025 11:53:28 GMT</span></span>
+<span id="cb46-59"><a href="#cb46-59" aria-hidden="true" tabindex="-1"></a><span class="st">  &lt; server: istio-envoy</span></span>
+<span id="cb46-60"><a href="#cb46-60" aria-hidden="true" tabindex="-1"></a><span class="st">  &lt;</span></span>
+<span id="cb46-61"><a href="#cb46-61" aria-hidden="true" tabindex="-1"></a><span class="st">* Connection #0 to host bookinfo.example.com left intact</span></span></code></pre></div>
+<h3 id="update-windows-hosts-file-administrator">7.3.9 Update Windows
+hosts file ( administrator )</h3>
+<p>Edit <code>C:\Windows\System32\Drivers\etc\hosts</code> adding</p>
+<p><code>127.0.0.1 bookinfo.example.com</code></p>
+<p>From your local browser try:
+https://bookinfo.example.com:8443/productpage</p>
+<h3 id="host-port-forwarding">7.3.10 Host Port Forwarding</h3>
+<div class="sourceCode" id="cb47"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> <span class="at">-L</span> 8443:localhost:8443 vagrant@192.168.0.74</span></code></pre></div>
+<h3 id="import-certificate">7.3.11 Import Certificate</h3>
+<p>Pressing the following keys Windows + R should bring up the command
+window. Enter <code>mmc</code> and enter.</p>
+<figure>
+<img src="img_5.png" alt="img_5.png" />
+<figcaption aria-hidden="true">img_5.png</figcaption>
+</figure>
+<p>Choose File -&gt; Add/Remove Snap-in</p>
+<figure>
+<img src="img_6.png" alt="img_6.png" />
+<figcaption aria-hidden="true">img_6.png</figcaption>
+</figure>
+<p>Choose Certificates -&gt; Add -&gt; Computer Account -&gt; Finish</p>
+<figure>
+<img src="img_7.png" alt="img_7.png" />
+<figcaption aria-hidden="true">img_7.png</figcaption>
+</figure>
+<p>Left hand Menu -&gt; Certificates -&gt; Trusted Root Certificate All
+Tasks -&gt; Import.</p>
+<p>Import the certificate my-cert.crt</p>
+<figure>
+<img src="img_8.png" alt="img_8.png" />
+<figcaption aria-hidden="true">img_8.png</figcaption>
+</figure>
+<p>Restart the Browser and then visit:
+https://bookinfo.example.com:8443/productpage</p>
+<figure>
+<img src="img_9.png" alt="img_9.png" />
+<figcaption aria-hidden="true">img_9.png</figcaption>
+</figure>
+<p>Run this from vm to see the looped https request like previously but
+now with https</p>
+<div class="sourceCode" id="cb48"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="va">$(</span><span class="fu">seq</span> 1 10000<span class="va">)</span><span class="kw">;</span> </span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">do</span> <span class="ex">curl</span> <span class="at">--cacert</span> my-cert.crt <span class="at">-sSI</span> <span class="at">-o</span> /dev/null https://bookinfo.example.com:8443/productpage<span class="kw">;</span><span class="fu">sleep</span> 1<span class="kw">;</span> </span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a><span class="cf">done</span></span></code></pre></div>
+<figure>
+<img src="img_10.png" alt="img_10.png" />
+<figcaption aria-hidden="true">img_10.png</figcaption>
+</figure>
+<hr />
+<h3 id="appendix-api-gateway-example">8 Appendix API Gateway
+Example</h3>
+<h4 id="gatewayclass">8.1 GatewayClass</h4>
+<div class="sourceCode" id="cb49"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="fu">apiVersion</span><span class="kw">:</span><span class="at"> gateway.networking.k8s.io/v1  </span></span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a><span class="fu">kind</span><span class="kw">:</span><span class="at"> GatewayClass  </span></span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a><span class="fu">metadata</span><span class="kw">:</span><span class="at">  </span></span>
+<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> istio  </span></span>
+<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a><span class="fu">spec</span><span class="kw">:</span><span class="at">  </span></span>
+<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">controllerName</span><span class="kw">:</span><span class="at"> istio.io/gateway-controller</span></span></code></pre></div>
+<h4 id="gateway">8.2 Gateway</h4>
+<div class="sourceCode" id="cb50"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="fu">apiVersion</span><span class="kw">:</span><span class="at"> gateway.networking.k8s.io/v1</span></span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a><span class="fu">kind</span><span class="kw">:</span><span class="at"> Gateway</span></span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a><span class="fu">metadata</span><span class="kw">:</span></span>
+<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> my-gateway</span></span>
+<span id="cb50-5"><a href="#cb50-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">namespace</span><span class="kw">:</span><span class="at"> default</span></span>
+<span id="cb50-6"><a href="#cb50-6" aria-hidden="true" tabindex="-1"></a><span class="fu">spec</span><span class="kw">:</span></span>
+<span id="cb50-7"><a href="#cb50-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">gatewayClassName</span><span class="kw">:</span><span class="at"> istio</span></span>
+<span id="cb50-8"><a href="#cb50-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">listeners</span><span class="kw">:</span></span>
+<span id="cb50-9"><a href="#cb50-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> http</span></span>
+<span id="cb50-10"><a href="#cb50-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">protocol</span><span class="kw">:</span><span class="at"> HTTP</span></span>
+<span id="cb50-11"><a href="#cb50-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">port</span><span class="kw">:</span><span class="at"> </span><span class="dv">80</span></span>
+<span id="cb50-12"><a href="#cb50-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">hostname</span><span class="kw">:</span><span class="at"> </span><span class="st">&quot;example.com&quot;</span></span></code></pre></div>
+<h4 id="httproute">8.3 HTTPRoute</h4>
+<div class="sourceCode" id="cb51"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="fu">apiVersion</span><span class="kw">:</span><span class="at"> gateway.networking.k8s.io/v1</span></span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a><span class="fu">kind</span><span class="kw">:</span><span class="at"> HTTPRoute</span></span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a><span class="fu">metadata</span><span class="kw">:</span></span>
+<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> my-route</span></span>
+<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">namespace</span><span class="kw">:</span><span class="at"> default</span></span>
+<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a><span class="fu">spec</span><span class="kw">:</span></span>
+<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">parentRefs</span><span class="kw">:</span></span>
+<span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> my-gateway</span></span>
+<span id="cb51-9"><a href="#cb51-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">hostnames</span><span class="kw">:</span></span>
+<span id="cb51-10"><a href="#cb51-10" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="st">&quot;example.com&quot;</span></span>
+<span id="cb51-11"><a href="#cb51-11" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">rules</span><span class="kw">:</span></span>
+<span id="cb51-12"><a href="#cb51-12" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">matches</span><span class="kw">:</span></span>
+<span id="cb51-13"><a href="#cb51-13" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="fu">path</span><span class="kw">:</span></span>
+<span id="cb51-14"><a href="#cb51-14" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">type</span><span class="kw">:</span><span class="at"> PathPrefix</span></span>
+<span id="cb51-15"><a href="#cb51-15" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">value</span><span class="kw">:</span><span class="at"> /</span></span>
+<span id="cb51-16"><a href="#cb51-16" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">backendRefs</span><span class="kw">:</span></span>
+<span id="cb51-17"><a href="#cb51-17" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> my-service</span></span>
+<span id="cb51-18"><a href="#cb51-18" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">port</span><span class="kw">:</span><span class="at"> </span><span class="dv">80</span></span></code></pre></div>
+<hr />
+<h2 id="key-differences-old-vs-gateway-api">9 Key Differences: Old vs
+Gateway API</h2>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 41%" />
+<col style="width: 37%" />
+</colgroup>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Old Istio CRDs</th>
+<th>Gateway API</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ingress Gateway</td>
+<td>Created via Helm/istioctl</td>
+<td>Configured via Gateway resource</td>
+</tr>
+<tr>
+<td>Gateway Config</td>
+<td>networking.istio.io/v1beta1</td>
+<td>gateway.networking.k8s.io/v1</td>
+</tr>
+<tr>
+<td>Route Definition</td>
+<td>VirtualService</td>
+<td>HTTPRoute/TCPRoute</td>
+</tr>
+</tbody>
+</table>
+<p>The Gateway API provides a more standardized approach to configuring
+ingress in Kubernetes, while Istio implements the control plane that
+enacts these configurations.</p>
+<hr />
+<h2 id="appendix-alternative-kubernetes-installations">10 Appendix
+Alternative Kubernetes Installations</h2>
+<h3 id="kind-configuration">10.1 Kind Configuration</h3>
+<div class="sourceCode" id="cb52"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kind</span><span class="kw">:</span><span class="at"> Cluster</span></span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a><span class="fu">apiVersion</span><span class="kw">:</span><span class="at"> kind.x-k8s.io/vialpha4</span></span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a><span class="fu">nodes</span><span class="kw">:</span></span>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">role</span><span class="kw">:</span><span class="at"> control-plane</span></span>
+<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">role</span><span class="kw">:</span><span class="at"> worker</span></span>
+<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">role</span><span class="kw">:</span><span class="at"> worker</span></span></code></pre></div>
+<h3 id="k3d-installation">10.2 k3d Installation</h3>
+<div class="sourceCode" id="cb53"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="ex">k3d</span> cluster create <span class="at">--api-port</span> 6550 <span class="at">-p</span> <span class="st">&#39;9080:80@loadbalancer&#39;</span> <span class="at">-p</span> <span class="st">&#39;9443:443@loadbalancer&#39;</span> <span class="at">--agents</span> 2 <span class="at">--k3s-arg</span> <span class="st">&#39;--disable=traefik@server:*&#39;</span></span></code></pre></div>
+<hr />
+<h2 id="appendix-network-tools">11 Appendix Network Tools</h2>
+<h3 id="debug-with-netshoot">11.1 Debug with netshoot:</h3>
+<div class="sourceCode" id="cb54"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> debug <span class="at">-it</span> details-v1-7c5d957895-7wb6d <span class="at">--image</span><span class="op">=</span>nicolaka/netshoot <span class="at">--image-pull-policy</span><span class="op">=</span>Always <span class="at">--profile</span><span class="op">=</span>general</span></code></pre></div>
+<h3 id="packet-capture">11.2 Packet capture:</h3>
+<div class="sourceCode" id="cb55"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="va">POD</span><span class="op">=</span><span class="va">$(</span><span class="ex">kubectl</span> get pods <span class="at">-l</span> app=details <span class="at">-o</span> jsonpath=<span class="st">&quot;(.items[0].metadata.name)&quot;</span><span class="va">)</span></span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> debug <span class="va">$POD</span> <span class="at">-i</span> <span class="at">--image</span><span class="op">=</span>nicolaka/netshoot <span class="at">--</span> tcpdump <span class="at">-nAi</span> eth0 port 9080 or port 15008</span></code></pre></div>
+<hr />
+<h2 id="links">12 Links</h2>
+<ul>
+<li><a href="https://k3d.io">K3d Documentation</a></li>
+<li><a href="https://istio.io">Istio Official Site</a></li>
+<li><a href="https://gateway-api.sigs.k8s.io">Kubernetes Gateway
+API</a></li>
+</ul>
